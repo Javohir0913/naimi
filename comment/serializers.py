@@ -37,12 +37,25 @@ class GetFeedbackWithSubIdSerializer(serializers.ModelSerializer):
         return 'successfully'
 
     def get_comments(self, obj):
-        services = Service.objects.filter(category_id=obj.id).values('id',)
-        comments = [FeedbackModel.objects.filter(service=service.get('id'))
-                    for service in services]
+        services = Service.objects.filter(category_id=obj.id)
+
         data = []
-        for comment in comments:
-            if comment.values():
-                data.append(comment.values())
+        for service in services:
+            if service:
+                comments = FeedbackModel.objects.filter(service=service)
+                for comment in comments:
+                    images = FeedbackImageModel.objects.filter(comment=comment)
+                    image_urls = [self.context['request'].build_absolute_uri(image.image.url) for image in images]
+
+                    comment_info = {
+                        'id': comment.id,
+                        'msg': comment.msg,
+                        'mark': comment.mark,
+                        'created_at': comment.created_at,
+                        'price': comment.price,
+                        'images': image_urls
+                    }
+                    data.append(comment_info)
         return data
+
 

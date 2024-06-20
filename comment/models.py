@@ -20,6 +20,7 @@ class FeedbackModel(models.Model):
     msg = models.TextField()
     mark = models.IntegerField()
     created_at = models.DateField()
+    price = models.IntegerField(null=True, blank=True)
     service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service')
 
     def __str__(self):
@@ -30,7 +31,7 @@ class FeedbackModel(models.Model):
 
 
 class FeedbackImageModel(models.Model):
-    image = models.ImageField(upload_to='static/FeedbackImage/')
+    image = models.ImageField(upload_to='FeedbackImage/')
     comment = models.ForeignKey(FeedbackModel, related_name='images', on_delete=models.CASCADE)
 
     def __str__(self):
