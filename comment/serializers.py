@@ -37,11 +37,9 @@ class GetFeedbackWithSubIdSerializer(serializers.ModelSerializer):
         return 'successfully'
 
     def get_comments(self, obj):
-        profiles = Service.objects.filter(category_id=obj.id).values('id', 'owner_id', ).distinct()
-        print(profiles)
-        comments = [FeedbackModel.objects.filter(owner=profile.get('owner_id'), service=profile.get('id'))
-                    for profile in profiles]
-        print(comments)
+        services = Service.objects.filter(category_id=obj.id).values('id',)
+        comments = [FeedbackModel.objects.filter(service=service.get('id'))
+                    for service in services]
         data = []
         for comment in comments:
             if comment.values():
