@@ -4,8 +4,9 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from .models import FeedbackModel, FAQModel, FeedbackImageModel
 from .permissions import IsAdminOrReadOnly
-from .serializers import FeedbackSerializer, FAQsSerializer, FeedbackImageSerializer
+from .serializers import FeedbackSerializer, FAQsSerializer, FeedbackImageSerializer, GetFeedbackWithSubIdSerializer
 from users.models import ProfileModel
+from app_category.models import SubCategory
 
 
 class FeedbackViewSet(viewsets.ModelViewSet):
@@ -16,6 +17,16 @@ class FeedbackViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         owner = ProfileModel.objects.get(pk=self.request.user.id)
         serializer.save(owner=owner)
+
+    def get_queryset(self):
+        try:
+            if self.request.query_params['role'] is not None:
+                role = self.request.query_params['role']
+                if role in ['Customer', 'Expert']:
+                    return FAQModel.objects.filter(role=role)
+                return FAQModel.objects.all()
+        except:
+            return FAQModel.objects.all()
 
 
 class FeedbackImageViewSet(viewsets.ModelViewSet):
@@ -29,5 +40,7 @@ class FAQsViewSet(viewsets.ModelViewSet):
     serializer_class = FAQsSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-# class GetFeedbackWithSubId(RetrieveAPIView):
-#     queryset =
+
+class GetFeedbackWithSubIdView(RetrieveAPIView):
+    queryset = SubCategory.objects.all()
+    serializer_class = GetFeedbackWithSubIdSerializer

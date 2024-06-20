@@ -18,3 +18,5 @@ class IsOwner(BasePermission):
         if request.method in ("GET", "POST"):
             return request.user
         return request.user.is_superuser or request.user.id == view.get_object().user.id
+
+

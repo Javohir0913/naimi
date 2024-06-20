@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from app_category.models import SubCategory
 from .permissons import Cheak, IsOwner
+from app_category.permissions import GetOrAdmin
 from .serializers import RegistrationSerializer, VerificationSerializer, CitySerializer, ProfileSerializer, \
     LoginSerializer, ImageSerializer, VideoSerializer, GetProfileWithSubIdSerializer
 from .models import PhoneVerification, User, City, ProfileModel, ProfileVideoModel, ProfileImageModel, Favourite
@@ -23,6 +24,7 @@ from rest_framework.viewsets import ModelViewSet
 class CityView(ModelViewSet):
     queryset = City.objects.all()
     serializer_class = CitySerializer
+    permission_classes = [GetOrAdmin, ]
 
 
 class RegisterView(CreateAPIView):
