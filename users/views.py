@@ -15,8 +15,9 @@ from app_category.models import SubCategory
 from .permissons import Cheak, IsOwner
 from app_category.permissions import GetOrAdmin
 from .serializers import RegistrationSerializer, VerificationSerializer, CitySerializer, ProfileSerializer, \
-    LoginSerializer, ImageSerializer, VideoSerializer, GetProfileWithSubIdSerializer
-from .models import PhoneVerification, User, City, ProfileModel, ProfileVideoModel, ProfileImageModel, Favourite
+    LoginSerializer, ImageSerializer, VideoSerializer, GetProfileWithSubIdSerializer, FavoriteSerializer
+from .models import PhoneVerification, User, City, ProfileModel, ProfileVideoModel, ProfileImageModel, \
+    FavoriteModel
 from .utils import send_sms
 from rest_framework.viewsets import ModelViewSet
 
@@ -226,26 +227,43 @@ class VideoViewSet(ModelViewSet):
         serializer.save(user_id=self.request.user)
 
 
-class FavouriteView(APIView):
-    permission_classes = [IsAuthenticated]
+# class FavouriteView(APIView):
+#     permission_classes = [IsAuthenticated]
+#
+#     def get(self, req: Request):
+#         user = req.user
+#         favourites = FavouriteModel.objects.get(owner_id=user)
+#
+#         return Response({'data': favourites.profiles_id.values()})
+#
+#     def post(self, req: Request):
+#         try:
+#             user = req.user
+#             profile = ProfileModel.objects.get(user_id=req.data.get('profile'))
+#             favourites = Favourite.objects.get(owner_id=user)
+#         except:
+#             return Response({'error': 'Profile was not found'})
+#
+#         favourites.profiles_id.add(profile)
+#         favourites.save()
+#
+#         return Response({'msg': 'OK'}, status=200)
 
-    def get(self, req: Request):
-        user = req.user
-        favourites = Favourite.objects.get(owner_id=user)
 
-        return Response({'data': favourites.profiles_id.values()})
+class FavoriteViewSet(ModelViewSet):
+    queryset = FavoriteModel.objects.all()
+    serializer_class = FavoriteSerializer
+    permission_classes = [IsAuthenticated, ]
+    http_method_names = ['get', 'post', 'delete']
 
-    def post(self, req: Request):
-        try:
-            user = req.user
-            profile = ProfileModel.objects.get(user_id=req.data.get('profile'))
-            favourites = Favourite.objects.get(owner_id=user)
-        except:
-            return Response({'error': 'Profile was not found'})
+    def create(self, request, *args, **kwargs):
+        if request.data.get('profile_id') == request.user.id:
+            return Response(data={'msg': "error"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-        favourites.profiles_id.add(profile)
-        favourites.save()
-
-        return Response({'msg': 'OK'}, status=200)
-
-
+    def perform_create(self, serializer):
+        serializer.save(owner_id=ProfileModel.objects.get(id=self.request.user.id))

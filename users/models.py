@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 import random
@@ -116,9 +117,9 @@ class ProfileVideoModel(models.Model):
         verbose_name = 'Profile Videos'
 
 
-class Favourite(models.Model):
-    owner_id = models.OneToOneField(User, related_name='profile', on_delete=models.CASCADE)
-    profiles_id = models.ManyToManyField(ProfileModel, related_name='profiles', blank=True)
+class FavoriteModel(models.Model):
+    owner_id = models.ForeignKey(ProfileModel, related_name='profile', on_delete=models.CASCADE)
+    profile_id = models.ForeignKey(ProfileModel, related_name='profiles', blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:

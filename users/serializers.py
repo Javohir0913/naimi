@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, City, ProfileModel, ProfileImageModel, ProfileVideoModel
+from .models import User, City, ProfileModel, ProfileImageModel, ProfileVideoModel, FavoriteModel
 from app_category.models import SubCategory
 from app_service.models import Service
 
@@ -82,3 +82,11 @@ class GetProfileWithSubIdSerializer(serializers.ModelSerializer):
             data.append(profile.values())
         return data
 
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FavoriteModel
+        fields = '__all__'
+        extra_kwargs = {
+            'owner_id': {'read_only': True}
+        }
