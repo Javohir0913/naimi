@@ -24,6 +24,6 @@ urlpatterns += [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('my-profile/', GetMyProfileView.as_view(), name='my_profile'),
     path('update-admin/<int:pk>/', update_user, name='UpdateAdmin'),
-    path('get-profile/sub-id/<int:pk>/', GetProfileWithSubId.as_view(), name='test'),
+    path('get-profile/sub-id/', GetProfileWithSubId.as_view(), name='test'),
     path('get-profile-images-videos/<int:pk>/', GetProfileImagesAndFeedbackImagesView.as_view()),
 ]
