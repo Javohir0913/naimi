@@ -19,7 +19,7 @@ class FeedbackModel(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='Owner')
     msg = models.TextField()
     mark = models.IntegerField()
-    created_at = models.DateField()
+    created_at = models.DateField(auto_now=True)
     price = models.IntegerField(null=True, blank=True)
     service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='service')
 
@@ -33,6 +33,7 @@ class FeedbackModel(models.Model):
 class FeedbackImageModel(models.Model):
     image = models.ImageField(upload_to='FeedbackImage/')
     comment = models.ForeignKey(FeedbackModel, related_name='images', on_delete=models.CASCADE)
+    profile_id = models.ForeignKey(ProfileModel, on_delete=models.CASCADE, related_name='users')
 
     def __str__(self):
         return f'CommentImage {self.pk} for Comment {self.comment}'

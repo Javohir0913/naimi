@@ -1,11 +1,15 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
+from .filters import FeedbackFilterSet, FeedbackWithSubIdFilterSet
 from .models import FeedbackModel, FAQModel, FeedbackImageModel
+from .paginations import StandardResultsSetPagination
 from .permissions import IsAdminOrReadOnly
-from .serializers import FeedbackSerializer, FAQsSerializer, FeedbackImageSerializer, GetFeedbackWithSubIdSerializer
+from .serializers import FeedbackSerializer, FAQsSerializer, FeedbackImageSerializer,\
+    GetFeedbackSerializer
 from users.models import ProfileModel
 from app_category.models import SubCategory
 
@@ -14,10 +18,32 @@ class FeedbackViewSet(viewsets.ModelViewSet):
     queryset = FeedbackModel.objects.all()
     serializer_class = FeedbackSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+    http_method_names = ['post', 'delete']
 
     def perform_create(self, serializer):
         owner = ProfileModel.objects.get(pk=self.request.user.id)
         serializer.save(owner=owner)
+
+
+class GetFeedBackWithProfileIdView(ListAPIView):
+    queryset = FeedbackModel.objects.all()
+    serializer_class = GetFeedbackSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = FeedbackFilterSet
+    pagination_class = StandardResultsSetPagination
+
+
+class FeedbackImageViewSet(viewsets.ModelViewSet):
+    queryset = FeedbackImageModel.objects.all()
+    serializer_class = FeedbackImageSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    http_method_names = ['post', ]
+
+
+class FAQsViewSet(viewsets.ModelViewSet):
+    queryset = FAQModel.objects.all()
+    serializer_class = FAQsSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         try:
@@ -30,25 +56,10 @@ class FeedbackViewSet(viewsets.ModelViewSet):
             return FAQModel.objects.all()
 
 
-class FeedbackImageViewSet(viewsets.ModelViewSet):
-    queryset = FeedbackImageModel.objects.all()
-    serializer_class = FeedbackImageSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-
-class FAQsViewSet(viewsets.ModelViewSet):
-    queryset = FAQModel.objects.all()
-    serializer_class = FAQsSerializer
-    permission_classes = [IsAdminOrReadOnly]
-
-
-class GetFeedbackWithSubIdView(RetrieveAPIView):
-    queryset = SubCategory.objects.all()
-    serializer_class = GetFeedbackWithSubIdSerializer
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, context={'request': request})
-        return Response(serializer.data)
-
+class GetFeedbackWithSubIdView(ListAPIView):
+    queryset = FeedbackModel.objects.all()
+    serializer_class = GetFeedbackSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = FeedbackWithSubIdFilterSet
+    pagination_class = StandardResultsSetPagination
 

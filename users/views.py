@@ -1,31 +1,28 @@
+import datetime
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import api_view
 from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
-from rest_framework.request import Request
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 
-from app_category.models import SubCategory
+from .filters import GetProfileWithSubIdFilterSet
 from .permissons import Cheak, IsOwner
-from app_category.permissions import GetOrAdmin
-from .serializers import RegistrationSerializer, VerificationSerializer, CitySerializer, ProfileSerializer, \
-    LoginSerializer, ImageSerializer, VideoSerializer, GetProfileWithSubIdSerializer, FavoriteSerializer
-from .models import PhoneVerification, User, City, ProfileModel, ProfileVideoModel, ProfileImageModel, \
+from .serializers import RegistrationSerializer, VerificationSerializer, ProfileSerializer, \
+    LoginSerializer, ImageSerializer, VideoSerializer, FavoriteSerializer, UserSerializer, \
+    GetProfileImagesAndFeedbackImagesSerializer
+from .models import PhoneVerification, User, ProfileModel, ProfileVideoModel, ProfileImageModel, \
     FavoriteModel
 from .utils import send_sms
 from rest_framework.viewsets import ModelViewSet
-
-
-class CityView(ModelViewSet):
-    queryset = City.objects.all()
-    serializer_class = CitySerializer
-    permission_classes = [GetOrAdmin, ]
 
 
 class RegisterView(CreateAPIView):
@@ -39,7 +36,8 @@ class RegisterView(CreateAPIView):
             verification.generate_code()
             # send_sms(phone, f"Your verification code is {verification.code}")
             request.session['phone'] = phone
-            request.session['city'] = serializer.validated_data['city'].id
+            request.session['lan'] = serializer.validated_data['lan']
+            request.session['lat'] = serializer.validated_data['lat']
             return Response({'message': 'Verification code sent'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -73,11 +71,10 @@ class VerifyView(CreateAPIView):
                 if otp.created_at >= timezone.now() - timedelta(minutes=2):
                     otp.is_active = False
                     otp.save()
-                    city_id = request.session.get('city')
-
-                    city = City.objects.get(id=city_id)
+                    lat = request.session.get('lat')
+                    lan = request.session.get('lan')
                     try:
-                        user = User.objects.create_user(phone=phone, city=city)
+                        user = User.objects.create_user(phone=phone, lan=lan, lat=lat)
                     except:
                         return Response(data={"msg": "Already checked"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -174,9 +171,12 @@ class GetMyProfileView(ListAPIView):
         return Response(serializer.data)
 
 
-class GetProfileWithSubId(RetrieveAPIView):
-    queryset = SubCategory.objects.all()
-    serializer_class = GetProfileWithSubIdSerializer
+class GetProfileWithSubId(ListAPIView):
+    queryset = ProfileModel.objects.all()
+    serializer_class = ProfileSerializer
+    pagination_class = PageNumberPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = GetProfileWithSubIdFilterSet
 
 
 class ImageViewSet(ModelViewSet):
@@ -227,29 +227,6 @@ class VideoViewSet(ModelViewSet):
         serializer.save(user_id=self.request.user)
 
 
-# class FavouriteView(APIView):
-#     permission_classes = [IsAuthenticated]
-#
-#     def get(self, req: Request):
-#         user = req.user
-#         favourites = FavouriteModel.objects.get(owner_id=user)
-#
-#         return Response({'data': favourites.profiles_id.values()})
-#
-#     def post(self, req: Request):
-#         try:
-#             user = req.user
-#             profile = ProfileModel.objects.get(user_id=req.data.get('profile'))
-#             favourites = Favourite.objects.get(owner_id=user)
-#         except:
-#             return Response({'error': 'Profile was not found'})
-#
-#         favourites.profiles_id.add(profile)
-#         favourites.save()
-#
-#         return Response({'msg': 'OK'}, status=200)
-
-
 class FavoriteViewSet(ModelViewSet):
     queryset = FavoriteModel.objects.all()
     serializer_class = FavoriteSerializer
@@ -267,3 +244,27 @@ class FavoriteViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner_id=ProfileModel.objects.get(id=self.request.user.id))
+
+
+class GetProfileImagesAndFeedbackImagesView(RetrieveAPIView):
+    queryset = ProfileModel.objects.all()
+    serializer_class = GetProfileImagesAndFeedbackImagesSerializer
+
+
+@swagger_auto_schema(tags=['Update admin'], method='patch')
+@api_view(['PATCH'])
+def update_user(request, pk):
+    try:
+        if request.user.is_superuser:
+            try:
+                user = get_user_model().objects.get(pk=pk)
+            except:
+                return Response(data={"msg": "User was not found"}, status=status.HTTP_404_NOT_FOUND)
+            user.is_staff = not user.is_staff
+            user.save()
+            serializer = UserSerializer(instance=user)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(data={"msg": "You don't have permission"}, status=status.HTTP_400_BAD_REQUEST)
+    except:
+        return Response(data={"msg": "International server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

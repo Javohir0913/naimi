@@ -1,16 +1,55 @@
 from rest_framework import serializers
+from rest_framework.fields import ListField, ImageField
+
+from users.models import ProfileModel
 from .models import FeedbackModel, FAQModel, FeedbackImageModel
 from app_category.models import SubCategory
 from app_service.models import Service
 
 
+class GetFeedbackImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeedbackImageModel
+        fields = ['image']
+
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        if request is not None:
+            return request.build_absolute_uri(instance.image.url)
+        return instance.image.url
+
+
 class FeedbackSerializer(serializers.ModelSerializer):
+    uploaded_images = ListField(
+        child=ImageField(allow_empty_file=False, use_url=False),
+        write_only=True
+    )
+    images = GetFeedbackImageSerializer(many=True, read_only=True)
+
     class Meta:
         model = FeedbackModel
-        fields = '__all__'
+        fields = ['msg', 'mark', 'created_at', 'price', 'service', 'uploaded_images', 'images', 'owner']
         extra_kwargs = {
-            'owner': {'read_only': True}
+            'owner': {'read_only': True},
+            'created_at': {'read_only': True}
         }
+
+    def create(self, validated_data):
+        images = validated_data.pop('uploaded_images')
+        comment = FeedbackModel.objects.create(**validated_data)
+        profile_id = comment.service.owner_id
+        for image in images:
+            FeedbackImageModel.objects.create(comment=comment, image=image, profile_id=profile_id)
+
+        return comment
+
+
+class GetFeedbackSerializer(serializers.ModelSerializer):
+    images = GetFeedbackImageSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = FeedbackModel
+        fields = ['id', 'owner', 'msg', 'mark', 'created_at', 'price', 'service', 'images']
 
 
 class FeedbackImageSerializer(serializers.ModelSerializer):
@@ -23,39 +62,3 @@ class FAQsSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQModel
         fields = '__all__'
-
-
-class GetFeedbackWithSubIdSerializer(serializers.ModelSerializer):
-    msg = serializers.SerializerMethodField(method_name='get_msg', read_only=True)
-    comments = serializers.SerializerMethodField(method_name='get_comments', read_only=True)
-
-    class Meta:
-        model = SubCategory
-        fields = ['msg', 'comments']
-
-    def get_msg(self, obj):
-        return 'successfully'
-
-    def get_comments(self, obj):
-        services = Service.objects.filter(category_id=obj.id)
-
-        data = []
-        for service in services:
-            if service:
-                comments = FeedbackModel.objects.filter(service=service)
-                for comment in comments:
-                    images = FeedbackImageModel.objects.filter(comment=comment)
-                    image_urls = [self.context['request'].build_absolute_uri(image.image.url) for image in images]
-
-                    comment_info = {
-                        'id': comment.id,
-                        'msg': comment.msg,
-                        'mark': comment.mark,
-                        'created_at': comment.created_at,
-                        'price': comment.price,
-                        'images': image_urls
-                    }
-                    data.append(comment_info)
-        return data
-
-

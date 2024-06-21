@@ -1,42 +1,22 @@
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 import random
 import string
 
 
-class City(models.Model):
-    name = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name = 'City'
-        db_table = 'City_table'
-
-
 class CustomUserManager(BaseUserManager):
-    def create_user(self, phone, password=None, city=None):
-        if not phone:
-            raise ValueError('The Phone number field is required')
-        if not city:
-            raise ValueError('The City field is required')
+    def create_user(self, phone, lat, lan, password=None):
 
-        user = self.model(phone=phone, city=city)
+        user = self.model(phone=phone, lan=lan, lat=lat)
         if password:
             user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, phone, password=None, city=None):
-        try:
-            city_instance = City.objects.get(id=city)
-        except City.DoesNotExist:
-            raise ValueError('The City with the given id does not exist')
+    def create_superuser(self, phone, lan, lat,password=None):
 
-        user = self.create_user(phone=phone, password=password, city=city_instance)
+        user = self.create_user(phone=phone, password=password, lan=lan, lat=lat)
         user.is_staff = True
         user.is_superuser = True
         user.save(using=self._db)
@@ -45,8 +25,9 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=255, unique=True)
-    city = models.ForeignKey(City, on_delete=models.CASCADE)
     password = models.CharField(max_length=128)
+    lan = models.CharField(max_length=255)
+    lat = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
@@ -54,7 +35,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     USERNAME_FIELD = 'phone'
-    REQUIRED_FIELDS = ['city']
+    REQUIRED_FIELDS = ['lan', 'lat']
 
     def __str__(self):
         return self.phone
@@ -94,7 +75,7 @@ class ProfileModel(models.Model):
 
 
 class ProfileImageModel(models.Model):
-    user_id = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    user_id = models.ForeignKey(ProfileModel, on_delete=models.CASCADE, related_name='owner')
     image = models.ImageField(upload_to='ProfileImages')
 
     def __str__(self):
@@ -106,7 +87,7 @@ class ProfileImageModel(models.Model):
 
 
 class ProfileVideoModel(models.Model):
-    user_id = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    user_id = models.ForeignKey(ProfileModel, on_delete=models.CASCADE, related_name='profile')
     video = models.FileField(upload_to='ProfileVideos')
 
     def __str__(self):
@@ -118,9 +99,9 @@ class ProfileVideoModel(models.Model):
 
 
 class FavoriteModel(models.Model):
-    owner_id = models.ForeignKey(ProfileModel, related_name='profile', on_delete=models.CASCADE)
-    profile_id = models.ForeignKey(ProfileModel, related_name='profiles', blank=True, on_delete=models.CASCADE)
+    owner_id = models.ForeignKey(ProfileModel, related_name='favorite_profile', on_delete=models.CASCADE)
+    profile_id = models.ForeignKey(ProfileModel, related_name='favorite_profiles', blank=True, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return self.owner_id.phone
+        return str(self.owner_id.first_name)

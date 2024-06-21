@@ -1,26 +1,24 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import User, City, ProfileModel, ProfileImageModel, ProfileVideoModel, FavoriteModel
-from app_category.models import SubCategory
-from app_service.models import Service
-
-
-class CitySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = City
-        fields = '__all__'
+from .models import ProfileModel, ProfileImageModel, ProfileVideoModel, FavoriteModel
+from comment.models import FeedbackImageModel
+from comment.serializers import FeedbackImageSerializer, GetFeedbackImageSerializer
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    city_id = serializers.PrimaryKeyRelatedField(queryset=City.objects.all(), source='city')
-
     class Meta:
-        model = User
-        fields = ['phone', 'city_id']
+        model = get_user_model()
+        fields = ['phone', 'lat', 'lan']
 
     def create(self, validated_data):
-        city = validated_data.pop('city')
-        user = User.objects.create_user(phone=validated_data['phone'], city=city)
+        user = get_user_model().objects.create_user(phone=validated_data['phone'])
         return user
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = '__all__'
 
 
 class VerificationSerializer(serializers.Serializer):
@@ -52,6 +50,18 @@ class ImageSerializer(serializers.ModelSerializer):
         }
 
 
+class GetImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProfileImageModel
+        fields = ['image']
+
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        if request is not None:
+            return request.build_absolute_uri(instance.image.url)
+        return instance.image.url
+
+
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfileVideoModel
@@ -63,24 +73,16 @@ class VideoSerializer(serializers.ModelSerializer):
         }
 
 
-class GetProfileWithSubIdSerializer(serializers.ModelSerializer):
-    profiles = serializers.SerializerMethodField(method_name='get_profiles', read_only=True)
-    msg = serializers.SerializerMethodField(method_name='get_msg', read_only=True)
-
+class GetVideoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SubCategory
-        fields = ['msg', 'profiles']
+        model = ProfileVideoModel
+        fields = ['video']
 
-    def get_msg(self, obj):
-        return 'successfully'
-
-    def get_profiles(self, obj):
-        services = Service.objects.filter(category_id=obj.id).values('owner_id', ).distinct()
-        profiles = [ProfileModel.objects.filter(id=service.get('owner_id')) for service in services]
-        data = []
-        for profile in profiles:
-            data.append(profile.values())
-        return data
+    def to_representation(self, instance):
+        request = self.context.get('request')
+        if request is not None:
+            return request.build_absolute_uri(instance.video.url)
+        return instance.video.url
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
@@ -90,3 +92,28 @@ class FavoriteSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'owner_id': {'read_only': True}
         }
+
+
+class GetProfileImagesAndFeedbackImagesSerializer(serializers.ModelSerializer):
+    profile_images = serializers.SerializerMethodField()
+    profile_videos = serializers.SerializerMethodField()
+    feedback_images = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProfileModel
+        fields = ['profile_images', 'profile_videos', 'feedback_images']
+
+    def get_profile_images(self, obj):
+        images = ProfileImageModel.objects.filter(user_id=obj.id)
+        serializer = GetImageSerializer(images, many=True, context={'request': self.context.get('request')})
+        return serializer.data
+
+    def get_profile_videos(self, obj):
+        videos = ProfileVideoModel.objects.filter(user_id=obj.id)
+        serializer = GetVideoSerializer(videos, many=True, context={'request': self.context.get('request')})
+        return serializer.data
+
+    def get_feedback_images(self, obj):
+        images = FeedbackImageModel.objects.filter(profile_id=obj.id)
+        serializer = GetFeedbackImageSerializer(images, many=True, context={'request': self.context.get('request')})
+        return serializer.data
